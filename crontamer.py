@@ -33,7 +33,7 @@ def crontamer(script, options):
     if options.lock:
         h = hashlib.md5()
         h.update(script)
-        h.update(os.getuid())
+        h.update(str(os.getuid()))
         lockfile = "/tmp/crontamer." + h.hexdigest()
 
         # check for lock
@@ -57,10 +57,19 @@ def crontamer(script, options):
 
     # variables set before prcess starts
     start_time = time.time()
-    timeout = options.timeout * 3600     # timeout in seconds
+    try:
+        timeout_unit = options.timeout[-1]
+        timeout_number = float(options.timeout[:-1])
+        timeout = timeout_number * {"h": 3600, "m": 60, "s": 1}[timeout_unit]
+    except:
+        sys.stderr.write("Trouble parsing timeout period. Should be number with unit. For example, 12h, 30m or 45s\n")
+        sys.exit(1)
     killed = False
 
     # start process
+    if options.verbose:
+         sys.stderr.write("Starting process for '%s'\n" % script)
+         sys.stderr.write("Process started %s\n" % time.asctime(time.localtime(start_time)))
     process = subprocess.Popen(script, shell=True)
 
     # poll until the job is done
@@ -112,8 +121,8 @@ def crontamer(script, options):
 #
 def main():
 
-    parser = optparse.OptionParser()
-    parser.add_option("-t", "--timeout", dest="timeout", type="float", default=12.0,
+    parser = optparse.OptionParser(usage="%prog [options] 'my_script -opt1 -opt2 arg1 arg2'")
+    parser.add_option("-t", "--timeout", dest="timeout", default="12h",
                   help="set timeout for jobs in hours [default: %default]", metavar="HOURS")
     parser.add_option("-l", action="store_true", dest="lock",
                       help="Sets the process locking so that another instance of this job will not start [default]")
@@ -124,6 +133,9 @@ def main():
                       help="email address to sent to on script fail or timeout", metavar="EMAIL")
     parser.add_option("-v", action="store_true", dest="verbose", default=False,
                       help="verbose output set")
+    parser.description = """Wrapper script for cron jobs enabling locking, timeouts and email notification on failure.
+The wrapped commands should be a single quoted string so that any shell expansion and option parsing
+happens within the wrapped subprocess."""
 
     options, args = parser.parse_args()
 
