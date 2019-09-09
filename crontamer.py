@@ -14,7 +14,6 @@ import signal
 import optparse
 import hashlib
 
-
 def check_pid(pid):
     """ Check For the existence of a unix pid. """
     try:
@@ -34,7 +33,12 @@ def crontamer(script, options):
         h = hashlib.md5()
         h.update(script)
         h.update(str(os.getuid()))
-        lockfile = "/tmp/crontamer." + h.hexdigest()
+
+        if not options.lock_file:
+            lockfile = "/tmp/crontamer." + h.hexdigest()
+
+        else:
+            lockfile = options.lock_file
 
         # check for lock
         if os.path.exists(lockfile):
@@ -99,6 +103,9 @@ def crontamer(script, options):
     if options.lock:
         os.unlink(lockfile)
 
+    if not pid:
+        pid='N/A'
+
     # send emails if failed or killed
     if (returncode != 0 or killed) and options.email != '':
         msg = "From: %s\r\n" % options.email
@@ -106,6 +113,7 @@ def crontamer(script, options):
         msg += "Subject: [crontamer] %s\r\n\r\n" % script
         msg += "Notification from crontamer\n%s" % msg
         msg += "script:        %s\n" % script
+        msg += "pid:           %s\n" % pid
         msg += "returncode:    %s\n" % returncode
         msg += "start time:    %s\n" % time.asctime(time.localtime(start_time))
         msg += "end time:      %s\n" % time.asctime(time.localtime(end_time))
@@ -126,8 +134,11 @@ def main():
                   help="set timeout for jobs in hours [default: %default]", metavar="HOURS")
     parser.add_option("-l", action="store_true", dest="lock",
                       help="Sets the process locking so that another instance of this job will not start [default]")
+    parser.add_option("-L", "--lock-file", dest="lock_file", type="str", action="store", \
+                         help="Explicit lock file.  If not used lock file generated will be based on command supplied.  Can only be used in tandem with -l option.")
     parser.add_option("-u", action="store_false", dest="lock",
                       help="Sets the process locking so that another instance of this job can start")
+
     parser.set_default("lock", True)
     parser.add_option("-e", "--email", default="",
                       help="email address to sent to on script fail or timeout", metavar="EMAIL")
@@ -138,6 +149,10 @@ The wrapped commands should be a single quoted string so that any shell expansio
 happens within the wrapped subprocess."""
 
     options, args = parser.parse_args()
+
+    if options.lock_file and not options.lock:
+        print "Please use -L option with -l option"
+        sys.exit()
 
     # set remainder arguments to script to be run
     script = ' '.join(args)
