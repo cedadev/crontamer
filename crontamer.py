@@ -52,6 +52,9 @@ def crontamer(script, options):
                     sys.stderr.write("Lock file exists but no process running remove lock file.\n")
                 os.unlink(lockfile)
 
+        else:
+            pid = 'N/A'
+
         # lock
         if options.verbose:
             sys.stderr.write("Make Lock for process %s file: %s\n" % (os.getpid(), lockfile))
