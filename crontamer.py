@@ -29,6 +29,8 @@ def crontamer(script, options):
     #  loop until process stops.  If time out is reached kill process
 
     # if lock option spesified then lock process
+    pid = None
+
     if options.lock:
         h = hashlib.md5()
         h.update(script)
