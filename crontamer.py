@@ -52,18 +52,12 @@ def crontamer(script, options):
                     sys.stderr.write("Lock file exists but no process running remove lock file.\n")
                 os.unlink(lockfile)
 
-        else:
-            pid = 'N/A 1'
-
         # lock
         if options.verbose:
             sys.stderr.write("Make Lock for process %s file: %s\n" % (os.getpid(), lockfile))
         fd = file(lockfile, 'w')
         fd.write("%d" % os.getpid())
         fd.close()
-
-    else:
-        pid = 'N/A 2'
 
     # variables set before prcess starts
     start_time = time.time()
@@ -81,6 +75,8 @@ def crontamer(script, options):
          sys.stderr.write("Starting process for '%s'\n" % script)
          sys.stderr.write("Process started %s\n" % time.asctime(time.localtime(start_time)))
     process = subprocess.Popen(script, shell=True)
+
+    p_pid = process.pid
 
     # poll until the job is done
     while 1:
@@ -116,7 +112,7 @@ def crontamer(script, options):
         msg += "Subject: [crontamer] %s\r\n\r\n" % script
         msg += "Notification from crontamer\n%s" % msg
         msg += "script:        %s\n" % script
-        msg += "pid:           %s\n" % pid
+        msg += "pid:           %s\n" % p_pid
         msg += "returncode:    %s\n" % returncode
         msg += "start time:    %s\n" % time.asctime(time.localtime(start_time))
         msg += "end time:      %s\n" % time.asctime(time.localtime(end_time))
