@@ -29,8 +29,6 @@ def crontamer(script, options):
     #  loop until process stops.  If time out is reached kill process
 
     # if lock option spesified then lock process
-    pid = None
-
     if options.lock:
         h = hashlib.md5()
         h.update(script)
@@ -60,6 +58,9 @@ def crontamer(script, options):
         fd = file(lockfile, 'w')
         fd.write("%d" % os.getpid())
         fd.close()
+
+    else:
+        pid = 'N/A'
 
     # variables set before prcess starts
     start_time = time.time()
@@ -104,9 +105,6 @@ def crontamer(script, options):
     # unlock job
     if options.lock:
         os.unlink(lockfile)
-
-    if not pid:
-        pid='N/A'
 
     # send emails if failed or killed
     if (returncode != 0 or killed) and options.email != '':
