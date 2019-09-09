@@ -53,7 +53,7 @@ def crontamer(script, options):
                 os.unlink(lockfile)
 
         else:
-            pid = 'N/A'
+            pid = 'N/A 1'
 
         # lock
         if options.verbose:
@@ -63,7 +63,7 @@ def crontamer(script, options):
         fd.close()
 
     else:
-        pid = 'N/A'
+        pid = 'N/A 2'
 
     # variables set before prcess starts
     start_time = time.time()
