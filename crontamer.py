@@ -14,6 +14,8 @@ import signal
 import optparse
 import hashlib
 
+#todo: Write some unittests for this module (SJD)
+
 def check_pid(pid):
     """ Check For the existence of a unix pid. """
     try:
@@ -87,8 +89,13 @@ def crontamer(script, options):
             time.sleep(pollint)
         elif returncode is None:
             # kill the job as it has timed out
-            os.kill(process.pid, signal.SIGKILL)
+            #Sept'2019 - found that in some cases this kill was not killing off all child processes.  See https://unix.stackexchange.com/questions/14815/process-descendants
+            #Seems to work if you prepend a "-" in front of the number/use a negative of the number
+            all_processes = process.pid * -1
+            os.kill(all_processes, signal.SIGKILL)
             time.sleep(1)
+
+            #todo: need to add code to verify that all processes and child processes have been killed.
             killed = True
             if options.verbose:
                 sys.stderr.write("Killed on timeout!\n")
