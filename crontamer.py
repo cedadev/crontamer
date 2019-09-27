@@ -45,14 +45,16 @@ def crontamer(script, options):
         # check for lock
         if os.path.exists(lockfile):
             pid = file(lockfile).readline()
-            if check_pid(int(pid)):
-                if options.verbose:
-                    sys.stderr.write("Lock on and process found - Exiting.\n")
-                sys.exit(0)
-            else:
-                if options.verbose:
-                    sys.stderr.write("Lock file exists but no process running remove lock file.\n")
-                os.unlink(lockfile)
+
+            if pid != '':
+                if check_pid(int(pid)):
+                    if options.verbose:
+                        sys.stderr.write("Lock on and process found - Exiting.\n")
+                    sys.exit(0)
+                else:
+                    if options.verbose:
+                        sys.stderr.write("Lock file exists but no process running remove lock file.\n")
+                    os.unlink(lockfile)
 
         # lock
         if options.verbose:
