@@ -93,8 +93,9 @@ def crontamer(script, options):
             # kill the job as it has timed out
             #Sept'2019 - found that in some cases this kill was not killing off all child processes.  See https://unix.stackexchange.com/questions/14815/process-descendants
             #Seems to work if you prepend a "-" in front of the number/use a negative of the number
-            all_processes = process.pid * -1
-            os.kill(all_processes, signal.SIGKILL)
+
+            #todo: need to add option for "killing all child processes nicely" - see https://stackoverflow.com/questions/3332043/obtaining-pid-of-child-process
+            os.kill(process.pid, signal.SIGKILL)
             time.sleep(1)
 
             #todo: need to add code to verify that all processes and child processes have been killed.
