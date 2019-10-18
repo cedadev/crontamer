@@ -23,6 +23,7 @@ ppid = int(sys.argv[1])
 process_map = {}
 no_children = False
 child = None
+cnt = 0
 
 while not no_children:
 
@@ -45,10 +46,12 @@ while not no_children:
         process_map[parent] = child
 
         #reset parent to the child ppid to get the next step down,
+        parent = child
 
     except:
         no_children = True
-
+    print cnt
+    cnt+=1
 
 for i in process_map.keys():
     if process_map[i]:
