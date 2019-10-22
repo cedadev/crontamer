@@ -43,13 +43,15 @@ while not no_children:
     #first pass at first level of child processes
     try:
         child = childproc(parent)
-        process_map[parent] = child
+
+        process_map[cnt] = child
 
         #reset parent to the child ppid to get the next step down,
         parent = child
 
     except:
         no_children = True
+
     print cnt
     cnt+=1
 
