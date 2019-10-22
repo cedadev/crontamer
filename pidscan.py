@@ -45,10 +45,10 @@ while not no_children:
         child = childproc(parent)
 
         process_map[cnt] = child
-
+	#import pdb; pdb.set_trace()
         #reset parent to the child ppid to get the next step down,
         if len(child) == 1:
-            parent = child[0]
+            parent = int(child[0])
 
         else:
             for i in child:
