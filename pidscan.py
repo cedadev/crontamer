@@ -47,12 +47,17 @@ while not no_children:
         process_map[cnt] = child
 
         #reset parent to the child ppid to get the next step down,
-        parent = child
+        if len(child) == 1:
+            parent = child[0]
+
+        else:
+            for i in child:
+                print i
 
     except:
         no_children = True
 
-    print cnt
+
     cnt+=1
 
 for i in process_map.keys():
