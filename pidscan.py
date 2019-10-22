@@ -20,49 +20,28 @@ def childproc(parent_pid, sig=signal.SIGTERM):
 
 
 ppid = int(sys.argv[1])
-process_map = {}
+process_tree = []
 no_children = False
 child = None
-cnt = 0
+#cnt = 0
 
 while not no_children:
-
-    #initialise the top level
-    '''
-    if cnt == 0:
-        parent = ppid
-        
-    elif child != None:
-        parent = child # this is going to get confusing..... 
-        
-    '''
 
     if child is None:
         parent = ppid
 
     #first pass at first level of child processes
     try:
-        child = childproc(parent)
+        for child in childproc(parent):
+            process_tree.append(int(child))
 
-        process_map[cnt] = child
-	#import pdb; pdb.set_trace()
-        #reset parent to the child ppid to get the next step down,
-        if len(child) == 1:
-            parent = int(child[0])
-
-        else:
-            for i in child:
-                print i
+        #reset parent to the last child ppid to get the next step down.
+        parent = process_tree[-1]
 
     except:
         no_children = True
 
-
-    cnt+=1
-
-for i in process_map.keys():
-    if process_map[i]:
-        for j in process_map[i]:
-            print "%s has child process: %s" %(i, j)
+for i in process_tree:
+    print "%s has child process: %s" %(ppid,i)
 
 
