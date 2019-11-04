@@ -14,7 +14,7 @@ def childproc(parent_pid, sig=signal.SIGTERM):
         assert retcode == 0, "ps command returned %d" % retcode
 
         for pid_str in ps_output.split("\n")[:-1]:
-            children.append(pid_str)
+            children.append(int(pid_str))
 
         return children
 
@@ -40,7 +40,7 @@ if len(children) != 0 or children is None:
 
 else:
     no_children = True
-
+#import pdb; pdb.set_trace()
 while not no_children:
 
     for child in children:
@@ -51,11 +51,11 @@ while not no_children:
 
         if more_children:
 
-            for child in children:
+            for child2 in more_children:
                 #process_tree.append(int(child))
 
                 #extend the list we are iterating over with the latest pids
-                children.extend(child)
+                children.extend([child2])
 
             #reset parent to the last child ppid to get the next step down.
             #parent = process_tree[-1]
@@ -65,7 +65,7 @@ while not no_children:
         else:
             no_children = True
 
-for i in process_tree:
+for i in children:
     print "%s has child process: %s" %(ppid,i)
 
 
