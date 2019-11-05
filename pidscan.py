@@ -29,43 +29,32 @@ child = None
 #cnt = 0
 
 #check and get initial process
-try:
-    children = childproc(ppid)
-except:
-    print "Problem finding process %s" %ppid
-    sys.exit()
+children = childproc(ppid)
 
 if len(children) != 0 or children is None:
     no_children = False
 
 else:
     no_children = True
-#import pdb; pdb.set_trace()
+
 while not no_children:
 
     for child in children:
 
         #first pass at first level of child processes
+        anymore_children = childproc(child)
 
-        more_children = childproc(child)
+        if anymore_children:
 
-        if more_children:
-
-            for child2 in more_children:
-                #process_tree.append(int(child))
+            for another_child in anymore_children:
 
                 #extend the list we are iterating over with the latest pids
-                children.extend([child2])
-
-            #reset parent to the last child ppid to get the next step down.
-            #parent = process_tree[-1]
-
-            #process_tree += children
+                children.extend([another_child])
 
         else:
             no_children = True
 
-for i in children:
-    print "%s has child process: %s" %(ppid,i)
+#for i in children:
+#    print "%s has child process: %s" %(ppid,i)
 
 
