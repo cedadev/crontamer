@@ -14,6 +14,8 @@ import signal
 import optparse
 import hashlib
 
+from find_all_child_processes import find_all_child_processes
+
 #todo: Write some unittests for this module (SJD)
 
 def check_pid(pid):
@@ -72,6 +74,19 @@ def crontamer(script, options):
     except:
         sys.stderr.write("Trouble parsing timeout period. Should be number with unit. For example, 12h, 30m or 45s\n")
         sys.exit(1)
+
+    if options.kill_nicely_timeout:
+        try:
+            ko_nicely_unit = options.kill_nicely_timeout[-1]
+            ko_nicely_timeout_number = float(options.kill_nicely_timeout[:-1])
+            ko_nicely_timeout = ko_nicely_timeout_number * {"h": 3600, "m": 60, "s": 1}[ko_nicely_unit]
+
+        except:
+            sys.stderr.write("Trouble parsing child process timeout period. Should be number with unit. For example, 12h, 30m or 45s\n")
+            sys.exit(1)
+    else:
+        ko_nicely_timeout = None
+
     killed = False
 
     # start process
@@ -86,22 +101,48 @@ def crontamer(script, options):
     while 1:
         pollint = (time.time() - start_time)*0.01 + 0.001
         returncode = process.poll()
+
         if returncode is None and time.time() - start_time < timeout:
             # job is still going and not timed out
             time.sleep(pollint)
+
         elif returncode is None:
             # kill the job as it has timed out
-            #Sept'2019 - found that in some cases this kill was not killing off all child processes.  See https://unix.stackexchange.com/questions/14815/process-descendants
-            #Seems to work if you prepend a "-" in front of the number/use a negative of the number
 
-            #todo: need to add option for "killing all child processes nicely" - see https://stackoverflow.com/questions/3332043/obtaining-pid-of-child-process
-            os.kill(process.pid, signal.SIGKILL)
-            time.sleep(1)
+            if not options.kill_nicely_timeout:
+                os.kill(process.pid, signal.SIGKILL)
+                time.sleep(1)
 
-            #todo: need to add code to verify that all processes and child processes have been killed.
-            killed = True
-            if options.verbose:
-                sys.stderr.write("Killed on timeout!\n")
+                # todo: need to add code to verify that all processes and child processes have been killed.  Can use tree supplied by child_processes
+                killed = True
+                if options.verbose:
+                    sys.stderr.write("Killed on timeout!\n")
+
+            else:
+                #find all related processes.
+                child_processes = find_all_child_processes(p_pid)
+
+                if child_processes:
+
+                    child_processes.reverse()
+
+                    #sleep the alloted time
+                    time.sleep(ko_nicely_timeout)
+
+                    for child in child_processes:
+                        os.kill(child, signal.SIGKILL)
+
+                    #check that they have been killed off...
+                    time.sleep(10)
+
+                    #look again...
+                    child_processes_still_running = find_all_child_processes(p_pid)
+
+                    if child_processes_still_running:
+                        for child in child_processes:
+                            if options.verbose:
+                                sys.stderr.write("Problem killing %s!\n" %child)
+
         else:
             # job is finished exit polling loop
             break
@@ -141,10 +182,16 @@ def main():
     parser = optparse.OptionParser(usage="%prog [options] 'my_script -opt1 -opt2 arg1 arg2'")
     parser.add_option("-t", "--timeout", dest="timeout", default="12h",
                   help="set timeout for jobs in hours [default: %default]", metavar="HOURS")
+
     parser.add_option("-l", action="store_true", dest="lock",
                       help="Sets the process locking so that another instance of this job will not start [default]")
+
     parser.add_option("-L", "--lock-file", dest="lock_file", type="str", action="store", \
                          help="Explicit lock file.  If not used lock file generated will be based on command supplied.  Can only be used in tandem with -l option.")
+
+    parser.add_option("-K", "--kill-children-nicely-minutes", dest="kill_nicely_timeout", type="str", action="store", \
+                      help="When -t option used will kill nicely all child processes and wait this many minutes to allow them to finish")
+
     parser.add_option("-u", action="store_false", dest="lock",
                       help="Sets the process locking so that another instance of this job can start")
 
@@ -161,6 +208,11 @@ happens within the wrapped subprocess."""
 
     if options.lock_file and not options.lock:
         print "Please use -L option with -l option"
+        sys.exit()
+
+    if options.kill_nicely_timeout and not options.timeout:
+        print "Please use the -K option with the -t option."
+
         sys.exit()
 
     # set remainder arguments to script to be run
