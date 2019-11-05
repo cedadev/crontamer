@@ -22,13 +22,10 @@ def childproc(parent_pid, sig=signal.SIGTERM):
         return None
 
 
-ppid = int(sys.argv[1])
-process_tree = []
-no_children = False
-child = None
+no_children = True
 
 #check and get initial process
-children = childproc(ppid)
+children = childproc(int(sys.argv[1]))
 
 if children:
     no_children = False
@@ -50,7 +47,7 @@ while not no_children:
         else:
             no_children = True
 
-#for i in children:
-#    print "%s has child process: %s" %(ppid,i)
+for i in children:
+    print "%s has child process: %s" %(int(sys.argv[1]),i)
 
 
