@@ -26,16 +26,12 @@ ppid = int(sys.argv[1])
 process_tree = []
 no_children = False
 child = None
-#cnt = 0
 
 #check and get initial process
 children = childproc(ppid)
 
-if len(children) != 0 or children is None:
+if children:
     no_children = False
-
-else:
-    no_children = True
 
 while not no_children:
 
