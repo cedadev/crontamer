@@ -46,8 +46,11 @@ while not no_children:
 
         else:
             no_children = True
+if children:
+    for i in children:
+        print "%s has child process: %s" %(int(sys.argv[1]),i)
 
-for i in children:
-    print "%s has child process: %s" %(int(sys.argv[1]),i)
+else:
+    print "No children"
 
 
