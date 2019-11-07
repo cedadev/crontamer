@@ -109,25 +109,26 @@ def crontamer(script, options):
         elif returncode is None:
             # kill the job as it has timed out
 
-            if not options.kill_nicely_timeout:
-                os.kill(process.pid, signal.SIGKILL)
-                time.sleep(1)
+            # find all related processes so we can track them if we need to.
+            child_processes = find_all_child_processes(process.pid)
 
-                # todo: need to add code to verify that all processes and child processes have been killed.  Can use tree supplied by child_processes
-                killed = True
-                if options.verbose:
-                    sys.stderr.write("Killed on timeout!\n")
+            # todo: need to add code to verify that all processes and child processes have been killed.  Can use tree supplied by child_processes
+            os.kill(process.pid, signal.SIGKILL)
+            time.sleep(1)
+            killed = True
 
-            else:
-                #find all related processes.
-                child_processes = find_all_child_processes(p_pid)
+            if options.verbose:
+                sys.stderr.write("Primary process killed on timeout!\n")
+
+            if options.kill_nicely_timeout:
 
                 if child_processes:
 
-                    child_processes.reverse()
-
                     #sleep the alloted time
                     time.sleep(ko_nicely_timeout)
+
+                    # make sure the first is last, and the last shallt be first.
+                    child_processes.reverse()
 
                     for child in child_processes:
                         os.kill(child, signal.SIGKILL)
@@ -139,7 +140,7 @@ def crontamer(script, options):
                     child_processes_still_running = find_all_child_processes(p_pid)
 
                     if child_processes_still_running:
-                        for child in child_processes:
+                        for child in child_processes_still_running:
                             if options.verbose:
                                 sys.stderr.write("Problem killing %s!\n" %child)
 
