@@ -1,4 +1,5 @@
 import subprocess, signal
+import psutil
 
 def childproc(parent_pid, sig=signal.SIGTERM):
     '''
