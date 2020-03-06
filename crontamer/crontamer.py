@@ -8,14 +8,11 @@
 import hashlib
 import optparse
 import os
-import signal
 import smtplib
 import subprocess
 import sys
 import time
 import psutil
-
-from .find_all_child_processes import find_all_child_processes
 
 
 #todo: Write some unittests for this module (SJD)
