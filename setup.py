@@ -28,14 +28,15 @@ setup(
     keywords='cron',
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
-    packages=find_packages(),
+    #packages=["crontamer"],
+    py_modules=["crontamer"],
     requires=["psutil", "docopt"],
     # To provide executable scripts, use entry points in preference to the
     # "scripts" keyword. Entry points provide cross-platform support and allow
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
         'console_scripts': [
-            'crontamer=crontamer.crontamer:main',
+            'crontamer=crontamer:main',
         ],
     },
 )
