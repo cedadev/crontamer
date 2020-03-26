@@ -82,7 +82,7 @@ def crontamer(script, options):
     start_time = time.time()
 
     timeout = parse_time_period(options.timeout)
-    ko_nicely_timeout = parse_time_period(options.kill_nicely_timeout)
+    ko_timeout = parse_time_period(options.kill_timeout)
 
     killed = False
 
@@ -103,10 +103,10 @@ def crontamer(script, options):
         elif returncode is None:
             # kill the job as it has timed out
             p = psutil.Process(process.pid)
-            kill_children(p, int_wait=ko_nicely_timeout, kill_wait=ko_nicely_timeout)
+            kill_children(p, int_wait=ko_timeout, kill_wait=ko_timeout)
             p.terminate()
             try:
-                p.wait(timeout=ko_nicely_timeout)
+                p.wait(timeout=ko_timeout)
             except psutil.TimeoutExpired:
                 p.kill()
             killed = True

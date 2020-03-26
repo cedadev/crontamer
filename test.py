@@ -23,8 +23,15 @@ class DCTestCase(unittest.TestCase):
         p = subprocess.Popen(["crontamer", "sleep", "2"])
         time.sleep(0.5)
         lockfiles = glob.glob("/tmp/crontamer.*")
-        assert len(lockfiles) == 1
-        lockfile = lockfiles[0]
+        assert len(lockfiles) > 0
+        for f in lockfiles:
+            mtime = os.path.getmtime(f)
+            if time.time() - mtime < 1:
+                lockfile = f
+                break
+        else:
+            raise Exception("All the lock files are to old.")
+
         while True:
             time.sleep(0.5)
             if p.poll() is not None:
