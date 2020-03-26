@@ -5,27 +5,45 @@
 # Adapted form ingest control SJP 2016
 
 
+import hashlib
+import optparse
+import os
 import smtplib
 import subprocess
 import sys
-import os
 import time
-import signal
-import optparse
-import hashlib
+import psutil
 
-from find_all_child_processes import find_all_child_processes
 
 #todo: Write some unittests for this module (SJD)
 
-def check_pid(pid):
-    """ Check For the existence of a unix pid. """
+def write_verbose(options, msg):
+    if options.verbose:
+        sys.stderr.write("%s\n" % msg)
+
+
+def parse_time_period(s):
     try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    else:
-        return True
+        unit = s[-1]
+        number = float(s[:-1])
+        period = number * {"h": 3600, "m": 60, "s": 1}[unit]
+    except (ValueError, IndexError):
+        sys.stderr.write("Trouble parsing time period. Should be number with unit. For example, 12h, 30m or 45s\n")
+        sys.exit(1)
+    return period
+
+
+def kill_children(p, int_wait=10, kill_wait=5):
+    child_processes = p.children()
+    for c in child_processes:
+        kill_children(c)
+        c.terminate()
+    gone, alive = psutil.wait_procs(child_processes, timeout=int_wait)
+    for c in alive:
+        c.kill()
+    gone, alive = psutil.wait_procs(child_processes, timeout=kill_wait)
+    for a in alive:
+        sys.stderr.write("Problem killing %s!\n" % a)
 
 
 def crontamer(script, options):
@@ -34,13 +52,11 @@ def crontamer(script, options):
 
     # if lock option spesified then lock process
     if options.lock:
-        h = hashlib.md5()
-        h.update(script)
-        h.update(str(os.getuid()))
-
         if not options.lock_file:
+            h = hashlib.md5()
+            h.update(script)
+            h.update(str(os.getuid()))
             lockfile = "/tmp/crontamer." + h.hexdigest()
-
         else:
             lockfile = options.lock_file
 
@@ -49,53 +65,31 @@ def crontamer(script, options):
             pid = file(lockfile).readline()
 
             if pid != '':
-                if check_pid(int(pid)):
-                    if options.verbose:
-                        sys.stderr.write("Lock on and process found - Exiting.\n")
+                if psutil.pid_exists(int(pid)):
+                    write_verbose(options, "Lock (%s) on and process (%s) found - Exiting." % (lockfile, pid))
                     sys.exit(0)
                 else:
-                    if options.verbose:
-                        sys.stderr.write("Lock file exists but no process running remove lock file.\n")
+                    write_verbose(options, "Lock file exists (%s) but no process running remove lock file." % lockfile)
                     os.unlink(lockfile)
 
         # lock
-        if options.verbose:
-            sys.stderr.write("Make Lock for process %s file: %s\n" % (os.getpid(), lockfile))
+        write_verbose(options, "Make Lock for process %s file: %s\n" % (os.getpid(), lockfile))
         fd = file(lockfile, 'w')
         fd.write("%d" % os.getpid())
         fd.close()
 
     # variables set before prcess starts
     start_time = time.time()
-    try:
-        timeout_unit = options.timeout[-1]
-        timeout_number = float(options.timeout[:-1])
-        timeout = timeout_number * {"h": 3600, "m": 60, "s": 1}[timeout_unit]
-    except:
-        sys.stderr.write("Trouble parsing timeout period. Should be number with unit. For example, 12h, 30m or 45s\n")
-        sys.exit(1)
 
-    if options.kill_nicely_timeout:
-        try:
-            ko_nicely_unit = options.kill_nicely_timeout[-1]
-            ko_nicely_timeout_number = float(options.kill_nicely_timeout[:-1])
-            ko_nicely_timeout = ko_nicely_timeout_number * {"h": 3600, "m": 60, "s": 1}[ko_nicely_unit]
-
-        except:
-            sys.stderr.write("Trouble parsing child process timeout period. Should be number with unit. For example, 12h, 30m or 45s\n")
-            sys.exit(1)
-    else:
-        ko_nicely_timeout = None
+    timeout = parse_time_period(options.timeout)
+    ko_timeout = parse_time_period(options.kill_timeout)
 
     killed = False
 
     # start process
-    if options.verbose:
-         sys.stderr.write("Starting process for '%s'\n" % script)
-         sys.stderr.write("Process started %s\n" % time.asctime(time.localtime(start_time)))
+    write_verbose(options, "Starting process for '%s'" % script)
+    write_verbose(options, "Process started %s" % time.asctime(time.localtime(start_time)))
     process = subprocess.Popen(script, shell=True)
-
-    p_pid = process.pid
 
     # poll until the job is done
     while 1:
@@ -108,41 +102,15 @@ def crontamer(script, options):
 
         elif returncode is None:
             # kill the job as it has timed out
-
-            # find all related processes so we can track them if we need to.
-            child_processes = find_all_child_processes(process.pid)
-
-            # todo: need to add code to verify that all processes and child processes have been killed.  Can use tree supplied by child_processes
-            os.kill(process.pid, signal.SIGKILL)
-            time.sleep(1)
+            p = psutil.Process(process.pid)
+            kill_children(p, int_wait=ko_timeout, kill_wait=ko_timeout)
+            p.terminate()
+            try:
+                p.wait(timeout=ko_timeout)
+            except psutil.TimeoutExpired:
+                p.kill()
             killed = True
-
-            if options.verbose:
-                sys.stderr.write("Primary process killed on timeout!\n")
-
-            if options.kill_nicely_timeout:
-
-                if child_processes:
-
-                    #sleep the alloted time
-                    time.sleep(ko_nicely_timeout)
-
-                    # make sure the first is last, and the last shallt be first.
-                    child_processes.reverse()
-
-                    for child in child_processes:
-                        os.kill(child, signal.SIGKILL)
-
-                    #check that they have been killed off...
-                    time.sleep(10)
-
-                    #look again...
-                    child_processes_still_running = find_all_child_processes(p_pid)
-
-                    if child_processes_still_running:
-                        for child in child_processes_still_running:
-                            if options.verbose:
-                                sys.stderr.write("Problem killing %s!\n" %child)
+            write_verbose(options, "Primary process killed on timeout!")
 
         else:
             # job is finished exit polling loop
@@ -150,8 +118,7 @@ def crontamer(script, options):
 
     # mark the end of the job
     end_time = time.time()
-    if options.verbose:
-        sys.stderr.write("Process ended %s\n" % time.asctime(time.localtime(end_time)))
+    write_verbose(options, "Process ended %s\n" % time.asctime(time.localtime(end_time)))
 
     # unlock job
     if options.lock:
@@ -164,7 +131,7 @@ def crontamer(script, options):
         msg += "Subject: [crontamer] %s\r\n\r\n" % script
         msg += "Notification from crontamer\n%s" % msg
         msg += "script:        %s\n" % script
-        msg += "pid:           %s\n" % p_pid
+        msg += "pid:           %s\n" % process.pid
         msg += "returncode:    %s\n" % returncode
         msg += "start time:    %s\n" % time.asctime(time.localtime(start_time))
         msg += "end time:      %s\n" % time.asctime(time.localtime(end_time))
@@ -174,28 +141,26 @@ def crontamer(script, options):
         server = smtplib.SMTP('localhost')
         server.sendmail(options.email, options.email, msg)
 
+    if killed:
+        sys.exit(1)
+    else:
+        sys.exit(returncode)
 
-# ------------------------------------------
-# MAIN PROGRAM
-#
+
 def main():
-
     parser = optparse.OptionParser(usage="%prog [options] 'my_script -opt1 -opt2 arg1 arg2'")
     parser.add_option("-t", "--timeout", dest="timeout", default="12h",
-                  help="set timeout for jobs in hours [default: %default]", metavar="HOURS")
-
+                      help="set timeout for jobs in hours [default: %default]", metavar="PERIOD")
     parser.add_option("-l", action="store_true", dest="lock",
                       help="Sets the process locking so that another instance of this job will not start [default]")
-
-    parser.add_option("-L", "--lock-file", dest="lock_file", type="str", action="store", \
-                         help="Explicit lock file.  If not used lock file generated will be based on command supplied.  Can only be used in tandem with -l option.")
-
-    parser.add_option("-K", "--kill-children-nicely-minutes", dest="kill_nicely_timeout", type="str", action="store", \
-                      help="When -t option used will kill nicely all child processes and wait this many minutes to allow them to finish")
-
+    parser.add_option("-L", "--lock-file", dest="lock_file", type="str", action="store",
+                      help="Explicit lock file name.  If not used lock file generated will be based on command supplied.")
+    parser.add_option("-K", "--kill-timeout", dest="kill_timeout", type="str", action="store",
+                      help="When timed out will kill all child processes, but wait this period to allow them to "
+                           "finish after sending an interrupt. [default: %default]",
+                      default="5s")
     parser.add_option("-u", action="store_false", dest="lock",
                       help="Sets the process locking so that another instance of this job can start")
-
     parser.set_default("lock", True)
     parser.add_option("-e", "--email", default="",
                       help="email address to sent to on script fail or timeout", metavar="EMAIL")
@@ -207,20 +172,12 @@ happens within the wrapped subprocess."""
 
     options, args = parser.parse_args()
 
-    if options.lock_file and not options.lock:
-        print "Please use -L option with -l option"
-        sys.exit()
-
-    if options.kill_nicely_timeout and not options.timeout:
-        print "Please use the -K option with the -t option."
-
-        sys.exit()
-
     # set remainder arguments to script to be run
     script = ' '.join(args)
 
     # make connector and run script
     crontamer(script, options)
+
 
 if __name__ == "__main__":
     main()
