@@ -54,8 +54,8 @@ def crontamer(script, options):
     if options.lock:
         if not options.lock_file:
             h = hashlib.md5()
-            h.update(script)
-            h.update(str(os.getuid()))
+            h.update(script.encode())
+            h.update(str(os.getuid()).encode())
             lockfile = "/tmp/crontamer." + h.hexdigest()
         else:
             lockfile = options.lock_file
@@ -74,9 +74,8 @@ def crontamer(script, options):
 
         # lock
         write_verbose(options, "Make Lock for process %s file: %s\n" % (os.getpid(), lockfile))
-        fd = file(lockfile, 'w')
-        fd.write("%d" % os.getpid())
-        fd.close()
+        with open(lockfile, 'w') as fd:
+            fd.write("%d" % os.getpid())
 
     # variables set before prcess starts
     start_time = time.time()
