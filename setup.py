@@ -14,7 +14,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='crontamer',
-    version='1.0.1',
+    version='1.0.2',
     description='A wrapper script for cron processes. Stops multiple process instances and gives a default timesout.',
     long_description=long_description,
 
